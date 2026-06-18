@@ -58,6 +58,7 @@ export interface EvaluateResponse {
   report: string;
   model_name?: string;
   dataset_name?: string;
+  model_used?: string;   // "A", "B", or "heuristique"
 }
 
 export interface EvaluationRecord extends EvaluateResponse {
@@ -84,6 +85,7 @@ export interface JobEvent {
   status?: "running" | "done" | "error";
   message?: string;
   result?: EvaluateResponse;
+  extracted?: Record<string, unknown>;
 }
 
 // ── HTTP helper ──────────────────────────────────────────────────────────────
@@ -225,10 +227,23 @@ export const api = {
 
       const schedule: [number, JobEvent][] = [
         [300,  { step: "agent_model",   status: "running", message: "Analyse du fichier modèle…" }],
-        [1200, { step: "agent_model",   status: "done",    message: "Modèle analysé · paramètres extraits." }],
+        [1200, { step: "agent_model",   status: "done",    message: "Modèle analysé · paramètres extraits.",
+          extracted: {
+            model_type: "CNN", nb_params: 124000, depth: 6,
+            learning_rate: 0.001, dropout: 0.1, weight_decay: 0.0001,
+            epochs: 50, embed_dim: 0, num_heads: 0, patch_size: 0,
+          },
+        }],
         ...(hasDataset ? [
           [1300, { step: "agent_dataset", status: "running", message: "Analyse du dataset…" }],
-          [2200, { step: "agent_dataset", status: "done",    message: "Dataset analysé · 10 000 échantillons · 2 classes · var. intra : 0.42." }],
+          [2200, { step: "agent_dataset", status: "done",    message: "Dataset analysé · 10 000 échantillons · 2 classes · var. intra : 0.42.",
+            extracted: {
+              nb_train_samples: 10000, nb_classes: 2,
+              dataset_modality: "tabular",
+              dataset_intra_variance: 0.42,
+              dataset_inter_class_distance: 0.31,
+            },
+          }],
         ] as [number, JobEvent][] : []),
         [hasDataset ? 2300 : 1300, { step: "predictor", status: "running", message: "Prédiction de la vulnérabilité MIA…" }],
         [hasDataset ? 3200 : 2200, { step: "predictor", status: "done",    message: `AUC estimée : ${auc.toFixed(3)} — Risque ${risk}` }],
@@ -240,6 +255,7 @@ export const api = {
           report: `Estimation AUC ≈ ${auc.toFixed(3)}. Niveau : ${risk}. (mode démo)`,
           model_name: "mock_model.pkl",
           dataset_name: hasDataset ? "mock_dataset.csv" : undefined,
+          model_used: hasDataset ? "A" : "B",
         }}],
         [hasDataset ? 4200 : 3200, { step: "__end__" }],
       ];

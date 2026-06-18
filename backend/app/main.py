@@ -18,6 +18,7 @@ with engine.connect() as _conn:
         "dataset_name VARCHAR",
         "dataset_intra_variance FLOAT",
         "dataset_inter_class_distance FLOAT",
+        "model_used VARCHAR",
     ):
         try:
             _conn.execute(text(f"ALTER TABLE evaluations ADD COLUMN {_col}"))
@@ -33,7 +34,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],      # Bearer token → pas de cookies → credentials inutile
+    allow_origins=CORS_ORIGINS,
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -28,6 +28,7 @@ interface StepState {
   label: string;
   status: StepStatus;
   message: string;
+  extracted?: Record<string, unknown>;
 }
 
 interface ManualParams {
@@ -143,7 +144,12 @@ function EvaluatePage() {
           setSteps((prev) =>
             prev.map((s) =>
               s.id === event.step
-                ? { ...s, status: (event.status as StepStatus) || s.status, message: event.message || "" }
+                ? {
+                    ...s,
+                    status: (event.status as StepStatus) || s.status,
+                    message: event.message || "",
+                    ...(event.extracted ? { extracted: event.extracted } : {}),
+                  }
                 : s
             )
           );
@@ -415,7 +421,10 @@ function EvaluatePage() {
                       )}
                     </div>
                     {s.message && (
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{s.message}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{s.message}</p>
+                    )}
+                    {s.status === "done" && s.extracted && Object.keys(s.extracted).length > 0 && (
+                      <ExtractedTable data={s.extracted} />
                     )}
                   </div>
                 </div>
@@ -432,6 +441,59 @@ function EvaluatePage() {
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
+
+const EXTRACTED_LABELS: Record<string, string> = {
+  model_type:                  "Type de modèle",
+  nb_params:                   "Nb paramètres",
+  depth:                       "Profondeur",
+  num_heads:                   "Têtes d'attention",
+  embed_dim:                   "Dimension embedding",
+  mlp_ratio:                   "Ratio MLP",
+  patch_size:                  "Taille patch",
+  learning_rate:               "Learning rate",
+  dropout:                     "Dropout",
+  weight_decay:                "Weight decay",
+  epochs:                      "Epochs",
+  nb_train_samples:            "Nb échantillons",
+  nb_classes:                  "Nb classes",
+  dataset_modality:            "Modalité",
+  dataset_intra_variance:      "Variance intra-classe",
+  dataset_inter_class_distance:"Distance inter-classes",
+};
+
+function formatExtractedValue(key: string, val: unknown): string {
+  if (typeof val === "boolean") return val ? "oui" : "non";
+  if (typeof val === "number") {
+    if (key === "nb_params" || key === "nb_train_samples")
+      return val.toLocaleString("fr-FR");
+    if (Number.isInteger(val)) return String(val);
+    return val.toFixed(4).replace(/\.?0+$/, "");
+  }
+  return String(val);
+}
+
+function ExtractedTable({ data }: { data: Record<string, unknown> }) {
+  const rows = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== "");
+  if (rows.length === 0) return null;
+  return (
+    <div className="mt-2 rounded-md border border-border overflow-hidden">
+      <table className="w-full text-xs">
+        <tbody>
+          {rows.map(([key, val]) => (
+            <tr key={key} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+              <td className="px-3 py-1.5 text-muted-foreground font-medium w-1/2">
+                {EXTRACTED_LABELS[key] ?? key}
+              </td>
+              <td className="px-3 py-1.5 font-mono text-foreground">
+                {formatExtractedValue(key, val)}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
 function StepIcon({ status }: { status: StepStatus }) {
   if (status === "done")    return <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />;
@@ -477,12 +539,29 @@ function ResultCard({ result }: { result: EvaluateResponse }) {
           </div>
           <div className="flex-1 space-y-2">
             <RiskBadge level={result.risk_level} size="lg" />
-            {result.model_name && (
-              <div className="text-xs text-muted-foreground">
-                Modèle : <span className="font-medium text-foreground">{result.model_name}</span>
-                {result.dataset_name && <> · Dataset : <span className="font-medium text-foreground">{result.dataset_name}</span></>}
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+              {result.model_name && (
+                <span>Modèle : <span className="font-medium text-foreground">{result.model_name}</span></span>
+              )}
+              {result.dataset_name && (
+                <span>Dataset : <span className="font-medium text-foreground">{result.dataset_name}</span></span>
+              )}
+              {result.model_used && (
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ring-1 ring-inset ${
+                  result.model_used === "A"
+                    ? "bg-green-50 text-green-700 ring-green-600/20"
+                    : result.model_used === "B"
+                    ? "bg-blue-50 text-blue-700 ring-blue-600/20"
+                    : "bg-muted text-muted-foreground ring-border"
+                }`}>
+                  {result.model_used === "A"
+                    ? "Modèle A — précision maximale"
+                    : result.model_used === "B"
+                    ? "Modèle B — sans accuracy"
+                    : "Heuristique"}
+                </span>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">{result.report}</p>
           </div>
         </div>

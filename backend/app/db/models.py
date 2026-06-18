@@ -56,6 +56,7 @@ class Evaluation(Base):
     recommendations = Column(Text)   # JSON array
     model_name      = Column(String, nullable=True)
     dataset_name    = Column(String, nullable=True)
+    model_used      = Column(String, nullable=True)   # "A", "B", or "heuristique"
 
     created_at = Column(DateTime, default=datetime.utcnow)
 

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from ..core.security import get_current_user
 from ..db import models
 from ..db.database import get_db
 from ..schemas.results import GapAucPoint, ResultsSummary
@@ -9,8 +10,15 @@ router = APIRouter(prefix="/results", tags=["results"])
 
 
 @router.get("/summary", response_model=ResultsSummary)
-def results_summary(db: Session = Depends(get_db)):
-    evals = db.query(models.Evaluation).all()
+def results_summary(
+    current_user: models.User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    evals = (
+        db.query(models.Evaluation)
+        .filter(models.Evaluation.user_id == current_user.id)
+        .all()
+    )
 
     gap_vs_auc = []
     auc_histogram = [0] * 10

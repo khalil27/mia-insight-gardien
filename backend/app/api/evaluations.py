@@ -7,6 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPExcepti
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
+from ..core.config import MAX_MODEL_SIZE, MAX_DATASET_SIZE
 from ..core.jobs import Job, create_job, get_job
 from ..core.security import get_current_user
 from ..db import models
@@ -15,7 +16,6 @@ from ..pipeline import agent_model as ag_model
 from ..pipeline import agent_dataset as ag_dataset
 from ..pipeline import agent_analyzer, predictor, report_agent
 from ..pipeline.analyzer import analyze as enrich
-from ..pipeline.features import auc_to_risk
 from ..schemas.evaluation import (
     EvaluateInput,
     EvaluateResponse,
@@ -59,14 +59,15 @@ def evaluate(
 ):
     input_dict = body.model_dump()
     enriched = enrich(input_dict)
-    auc = round(predictor.predict(enriched), 3)
-    risk_level = auc_to_risk(auc)
+    auc, risk_level, model_used = predictor.predict(enriched)
     recommendations = report_agent.generate_recommendations(input_dict, auc, risk_level)
     report_text = report_agent.generate_report(input_dict, auc, risk_level)
-    _save_evaluation(db, current_user.id, body, auc, risk_level, recommendations, report_text)
+    _save_evaluation(db, current_user.id, body, auc, risk_level, recommendations, report_text,
+                     model_used=model_used)
     return EvaluateResponse(
         auc=auc, risk_level=risk_level,
         recommendations=recommendations, report=report_text,
+        model_used=model_used,
     )
 
 
@@ -87,6 +88,11 @@ async def submit_evaluation(
     config_bytes   = await config_file.read()  if config_file  else None
     dataset_bytes  = await dataset_file.read() if dataset_file else None
     dataset_filename = dataset_file.filename or "" if dataset_file else ""
+
+    if model_bytes and len(model_bytes) > MAX_MODEL_SIZE:
+        raise HTTPException(status_code=413, detail=f"Fichier modèle trop volumineux (max {MAX_MODEL_SIZE // 1024 // 1024} Mo).")
+    if dataset_bytes and len(dataset_bytes) > MAX_DATASET_SIZE:
+        raise HTTPException(status_code=413, detail=f"Fichier dataset trop volumineux (max {MAX_DATASET_SIZE // 1024 // 1024} Mo).")
 
     try:
         manual = json.loads(manual_params)
@@ -169,6 +175,7 @@ def get_evaluations(
                 report=report_content,
                 model_name=e.model_name,
                 dataset_name=e.dataset_name,
+                model_used=e.model_used,
                 input=EvaluateInput(
                     model_type=e.model_type,
                     dataset_modality=e.dataset_modality,
@@ -236,7 +243,8 @@ async def _run_pipeline(
         model_features = await loop.run_in_executor(None, _run_model_agent)
         features.update(model_features)
         msg = ag_model.summary_message(model_features) if model_features else "Paramètres par défaut utilisés."
-        await job.push({"step": "agent_model", "status": "done", "message": msg})
+        await job.push({"step": "agent_model", "status": "done", "message": msg,
+                        "extracted": model_features})
     except Exception as exc:
         await job.fail(f"Agent Modèle : {exc}")
         return
@@ -254,7 +262,8 @@ async def _run_pipeline(
             features.update(dataset_features)
             msg = ag_dataset.summary_message(dataset_features) if dataset_features \
                 else "Dataset non lisible — valeurs par défaut utilisées."
-            await job.push({"step": "agent_dataset", "status": "done", "message": msg})
+            await job.push({"step": "agent_dataset", "status": "done", "message": msg,
+                            "extracted": dataset_features})
         except Exception as exc:
             await job.fail(f"Agent Dataset : {exc}")
             return
@@ -270,11 +279,10 @@ async def _run_pipeline(
     await job.push({"step": "predictor", "status": "running",
                     "message": "Prédiction de la vulnérabilité MIA…"})
     try:
-        enriched   = enrich(features)
-        auc        = round(await loop.run_in_executor(None, predictor.predict, enriched), 3)
-        risk_level = auc_to_risk(auc)
+        enriched                  = enrich(features)
+        auc, risk_level, model_used = await loop.run_in_executor(None, predictor.predict, enriched)
         await job.push({"step": "predictor", "status": "done",
-                        "message": f"AUC estimée : {auc:.3f} — Risque {risk_level}"})
+                        "message": f"AUC estimée : {auc:.3f} — Risque {risk_level} (Modèle {model_used})"})
     except Exception as exc:
         await job.fail(f"Predictor : {exc}")
         return
@@ -297,7 +305,8 @@ async def _run_pipeline(
         input_obj  = EvaluateInput(**{k: features.get(k, _DEFAULTS.get(k)) for k in EvaluateInput.model_fields})
         _save_evaluation(db, user_id, input_obj, auc, risk_level,
                          recommendations, report_text,
-                         model_name=model_name, dataset_name=dataset_name)
+                         model_name=model_name, dataset_name=dataset_name,
+                         model_used=model_used)
         db.close()
     except Exception:
         pass
@@ -309,6 +318,7 @@ async def _run_pipeline(
         "report":          report_text,
         "model_name":      model_name,
         "dataset_name":    dataset_name,
+        "model_used":      model_used,
     })
 
 
@@ -322,6 +332,7 @@ def _save_evaluation(
     report_text:   str,
     model_name:    str = "",
     dataset_name:  str = "",
+    model_used:    str = "",
 ) -> None:
     eval_record = models.Evaluation(
         id=str(uuid.uuid4()),
@@ -351,6 +362,7 @@ def _save_evaluation(
         recommendations=json.dumps(recommendations, ensure_ascii=False),
         model_name=model_name,
         dataset_name=dataset_name,
+        model_used=model_used,
     )
     db.add(eval_record)
     db.flush()

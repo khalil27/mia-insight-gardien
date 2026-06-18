@@ -36,14 +36,15 @@ class EvaluateResponse(BaseModel):
     risk_level: str
     recommendations: List[str]
     report: str
+    model_name: Optional[str] = None
+    dataset_name: Optional[str] = None
+    model_used: Optional[str] = None   # "A", "B", or "heuristique"
 
 
 class EvaluationRecord(EvaluateResponse):
     id: str
     created_at: datetime
     input: EvaluateInput
-    model_name: Optional[str] = None
-    dataset_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
