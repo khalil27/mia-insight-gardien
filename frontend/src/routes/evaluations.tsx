@@ -119,23 +119,22 @@ function EvalCard({ ev }: { ev: EvaluationRecord }) {
             <h4 className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Paramètres utilisés</h4>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-1.5 text-xs">
               {[
-                ["Type modèle", ev.input.model_type],
-                ["Modalité", ev.input.dataset_modality],
-                ["depth", ev.input.depth],
-                ["num_heads", ev.input.num_heads],
-                ["embed_dim", ev.input.embed_dim],
-                ["nb_params", ev.input.nb_params.toLocaleString()],
-                ["epochs", ev.input.epochs],
+                ["Type modèle",   ev.input.model_type],
+                ["Modalité",      ev.input.dataset_modality],
+                ["depth",         ev.input.depth],
+                ["num_heads",     ev.input.num_heads],
+                ["embed_dim",     ev.input.embed_dim],
+                ["nb_params",     ev.input.nb_params?.toLocaleString() ?? "—"],
+                ["epochs",        ev.input.epochs],
                 ["learning_rate", ev.input.learning_rate],
-                ["batch_size", ev.input.batch_size],
-                ["dropout", ev.input.dropout],
-                ["weight_decay", ev.input.weight_decay],
-                ["data_aug.", ev.input.data_augmentation ? "oui" : "non"],
-                ["nb_samples", ev.input.nb_train_samples.toLocaleString()],
-                ["nb_classes", ev.input.nb_classes],
-                ["class_balance", ev.input.class_balance.toFixed(2)],
-                ["train_acc", ev.input.train_accuracy.toFixed(2)],
-                ["test_acc", ev.input.test_accuracy.toFixed(2)],
+                ["batch_size",    ev.input.batch_size],
+                ["dropout",       ev.input.dropout],
+                ["weight_decay",  ev.input.weight_decay],
+                ["data_aug.",     ev.input.data_augmentation ? "oui" : "non"],
+                ["nb_samples",    ev.input.nb_train_samples?.toLocaleString() ?? "—"],
+                ["nb_classes",    ev.input.nb_classes],
+                ["train_acc",     ev.input.train_accuracy != null ? ev.input.train_accuracy.toFixed(2) : "—"],
+                ["test_acc",      ev.input.test_accuracy  != null ? ev.input.test_accuracy.toFixed(2)  : "—"],
               ].map(([k, v]) => (
                 <div key={String(k)} className="flex justify-between gap-2 border-b border-border/40 py-0.5">
                   <span className="text-muted-foreground">{k}</span>

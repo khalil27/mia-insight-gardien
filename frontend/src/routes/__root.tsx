@@ -79,14 +79,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "MIA Predictor" },
-      { property: "og:title", content: "MIA Vulnerability Predictor" },
-      { property: "og:description", content: "Prédisez la vulnérabilité MIA d'un Transformer sans lancer d'attaque." },
+      { title: "MIA Insight Gardien" },
+      { name: "description", content: "Estimez la vulnérabilité MIA de vos modèles ML sans lancer d'attaque." },
+      { name: "author", content: "MIA Insight Gardien" },
+      { property: "og:title", content: "MIA Insight Gardien" },
+      { property: "og:description", content: "Estimez la vulnérabilité MIA de vos modèles ML sans lancer d'attaque." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {

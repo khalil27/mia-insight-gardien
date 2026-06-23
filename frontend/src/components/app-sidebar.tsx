@@ -1,15 +1,14 @@
 import { Link, useRouterState } from "@tanstack/react-router";
-import { Shield, Home, FlaskConical, BarChart3, LineChart, BookOpen, LogOut, History } from "lucide-react";
+import { Shield, Home, FlaskConical, LineChart, BookOpen, LogOut, History } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 
 const items = [
-  { title: "Accueil",       url: "/",            icon: Home },
-  { title: "Évaluation",   url: "/evaluate",    icon: FlaskConical },
-  { title: "Historique",   url: "/evaluations", icon: History },
-  { title: "Model Insights", url: "/insights",  icon: BarChart3 },
-  { title: "Résultats",    url: "/results",     icon: LineChart },
-  { title: "Documentation", url: "/docs",       icon: BookOpen },
+  { title: "Accueil",        url: "/",            icon: Home },
+  { title: "Évaluation",    url: "/evaluate",    icon: FlaskConical },
+  { title: "Historique",    url: "/evaluations", icon: History },
+  { title: "Résultats",     url: "/results",     icon: LineChart },
+  { title: "Documentation", url: "/docs",        icon: BookOpen },
 ] as const;
 
 export function AppSidebar() {
@@ -23,7 +22,7 @@ export function AppSidebar() {
           <Shield className="h-5 w-5 text-primary" />
         </div>
         <div>
-          <div className="font-semibold tracking-tight">MIA Predictor</div>
+          <div className="font-semibold tracking-tight">MIA Insight Gardien</div>
           <div className="text-xs text-sidebar-foreground/60">Vulnerability AI</div>
         </div>
       </div>

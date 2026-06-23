@@ -1,10 +1,13 @@
 """
 Agent Dataset — extrait automatiquement toutes les features depuis un CSV/Parquet/JSON.
 
-Features calculées (zero saisie manuelle) :
-  nb_train_samples, nb_classes, dataset_modality
-  dataset_intra_variance     : variance intra-classe normalisée [0,1]
+Features calculées (zéro saisie manuelle) :
+  nb_train_samples, nb_classes
+  dataset_intra_variance       : variance intra-classe normalisée [0,1]
   dataset_inter_class_distance : distance inter-centroïdes normalisée [0,1]
+
+Note : dataset_modality n'est PAS calculé ici — il est inféré par agent_model.py
+depuis le type de modèle détecté (plus fiable que le nom du fichier dataset).
 """
 import io
 import urllib.request
@@ -15,19 +18,13 @@ import pandas as pd
 
 
 def _find_label_col(df: pd.DataFrame) -> Optional[str]:
+    """Find the label column by common names, then fall back to the last column."""
     for name in ("label", "target", "class", "y", "output", "classe", "category", "labels"):
         if name in df.columns:
             return name
-    return df.columns[-1] if len(df.columns) > 1 else None
-
-
-def _guess_modality(filename: str, url: str = "") -> str:
-    ref = (filename + url).lower()
-    if any(k in ref for k in ("image", "img", "cifar", "imagenet", "mnist", "pixel", "photo")):
-        return "image"
-    if any(k in ref for k in ("text", "nlp", "sent", "review", "tweet", "news", "article")):
-        return "text"
-    return "tabular"
+    # Exclude purely numeric index-like columns
+    non_numeric_last = [c for c in df.columns if not str(c).isdigit()]
+    return non_numeric_last[-1] if non_numeric_last else df.columns[-1]
 
 
 def _normalize(X: np.ndarray) -> np.ndarray:
@@ -120,7 +117,6 @@ def analyze(
 
     result: Dict[str, Any] = {
         "nb_train_samples": len(df),
-        "dataset_modality": _guess_modality(dataset_filename, dataset_url or ""),
     }
 
     label_col = _find_label_col(df)
@@ -133,10 +129,10 @@ def analyze(
 
 
 def summary_message(features: Dict[str, Any]) -> str:
-    parts = [f"{features.get('nb_train_samples', '?'):,} échantillons"]
+    n = features.get("nb_train_samples", "?")
+    parts = [f"{n:,} échantillons" if isinstance(n, int) else f"{n} échantillons"]
     if "nb_classes" in features:
         parts.append(f"{features['nb_classes']} classes")
-    parts.append(f"modalité : {features.get('dataset_modality', '?')}")
     if "dataset_intra_variance" in features:
         parts.append(f"var. intra : {features['dataset_intra_variance']:.3f}")
     if "dataset_inter_class_distance" in features:
