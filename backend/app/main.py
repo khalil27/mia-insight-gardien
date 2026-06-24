@@ -1,6 +1,18 @@
+import logging
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import PlainTextResponse
+
+# Donne au logger "app.*" son propre handler pour rester visible
+# indépendamment de la configuration logging d'uvicorn
+_app_logger = logging.getLogger("app")
+if not _app_logger.handlers:
+    _h = logging.StreamHandler()
+    _h.setFormatter(logging.Formatter("%(levelname)-8s  %(name)s - %(message)s"))
+    _app_logger.addHandler(_h)
+_app_logger.setLevel(logging.INFO)
+_app_logger.propagate = False
 
 from .core.config import CORS_ORIGINS
 from .db.database import engine

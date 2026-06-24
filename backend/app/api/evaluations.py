@@ -60,8 +60,7 @@ def evaluate(
     input_dict = body.model_dump()
     enriched = enrich(input_dict)
     auc, risk_level, model_used = predictor.predict(enriched)
-    recommendations = report_agent.generate_recommendations(input_dict, auc, risk_level)
-    report_text = report_agent.generate_report(input_dict, auc, risk_level)
+    report_text, recommendations = report_agent.generate_full(input_dict, auc, risk_level)
     _save_evaluation(db, current_user.id, body, auc, risk_level, recommendations, report_text,
                      model_used=model_used)
     return EvaluateResponse(
@@ -291,8 +290,13 @@ async def _run_pipeline(
     await job.push({"step": "reporter", "status": "running",
                     "message": "Génération du rapport et des recommandations…"})
     try:
-        recommendations = report_agent.generate_recommendations(features, auc, risk_level)
-        report_text     = report_agent.generate_report(features, auc, risk_level)
+        from ..rag import retriever as rag_retriever
+        context_chunks = await loop.run_in_executor(
+            None, rag_retriever.retrieve, features, auc, risk_level
+        )
+        report_text, recommendations = await loop.run_in_executor(
+            None, report_agent.generate_full, features, auc, risk_level, context_chunks
+        )
         await job.push({"step": "reporter", "status": "done",
                         "message": "Rapport généré avec succès."})
     except Exception as exc:
